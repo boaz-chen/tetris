@@ -5,7 +5,7 @@ import           System.Random
 import           Data.Time.Clock
 import           Data.Time.Format
 
-data Tetromino = Tetromino (Set.Set Block)
+data Tetromino = Tetromino [Block]
   deriving (Eq, Show)
 
 type Location = (Int, Int)
@@ -16,7 +16,7 @@ data Block = Block Location Color
 type Color = String -- TODO: replace with real Color
 
 cyanI :: Tetromino
-cyanI = Tetromino $ Set.fromList
+cyanI = Tetromino
   [ Block (0, 2) "Cyan"
   , Block (1, 2) "Cyan"
   , Block (2, 2) "Cyan"
@@ -24,7 +24,7 @@ cyanI = Tetromino $ Set.fromList
   ]
 
 yellowO :: Tetromino
-yellowO = Tetromino $ Set.fromList
+yellowO = Tetromino
   [ Block (1, 1) "Yellow"
   , Block (2, 1) "Yellow"
   , Block (1, 2) "Yellow"
@@ -32,7 +32,7 @@ yellowO = Tetromino $ Set.fromList
   ]
 
 purpleT :: Tetromino
-purpleT = Tetromino $ Set.fromList
+purpleT = Tetromino
   [ Block (0, 2) "Purple"
   , Block (1, 2) "Purple"
   , Block (2, 2) "Purple"
@@ -40,7 +40,7 @@ purpleT = Tetromino $ Set.fromList
   ]
 
 greenS :: Tetromino
-greenS = Tetromino $ Set.fromList
+greenS = Tetromino
   [ Block (0, 2) "Green"
   , Block (1, 2) "Green"
   , Block (1, 3) "Green"
@@ -48,7 +48,7 @@ greenS = Tetromino $ Set.fromList
   ]
 
 redZ :: Tetromino
-redZ = Tetromino $ Set.fromList
+redZ = Tetromino
   [ Block (0, 3) "Red"
   , Block (1, 3) "Red"
   , Block (1, 2) "Red"
@@ -56,7 +56,7 @@ redZ = Tetromino $ Set.fromList
   ]
 
 blueJ :: Tetromino
-blueJ = Tetromino $ Set.fromList
+blueJ = Tetromino
   [ Block (0, 3) "Blue"
   , Block (0, 2) "Blue"
   , Block (1, 2) "Blue"
@@ -64,7 +64,7 @@ blueJ = Tetromino $ Set.fromList
   ]
 
 orangeL :: Tetromino
-orangeL = Tetromino $ Set.fromList
+orangeL = Tetromino
   [ Block (0, 2) "Orange"
   , Block (1, 2) "Orange"
   , Block (2, 2) "Orange"
@@ -87,27 +87,49 @@ data BoardState =
 data Board = Board Heap BoardState StdGen
   deriving (Show)
 
+height :: Int
+height = 20
+
+width :: Int
+width = 10
+
+startPositionOffset :: Int
+startPositionOffset = height - 3
+
+data Direction = DirLeft | DirRight | DirDown
+
+
+
+-----------
+
 newBoard :: StdGen -> Board
 newBoard gen =
   let (newTetromino, newGen) = randomTetromino gen
-  in Board emptyHeap (GameOn newTetromino) newGen
+      positionedTetromino    = moveTetrominoToStartingPosition newTetromino
+  in  Board emptyHeap (GameOn positionedTetromino) newGen
 
 randomTetromino :: StdGen -> (Tetromino, StdGen)
 randomTetromino gen =
   let (randomIx, newGen) = randomR (0, (length tetrominoes) - 1) gen
   in  (tetrominoes !! randomIx, newGen)
 
+moveTetrominoToStartingPosition :: Tetromino -> Tetromino
+moveTetrominoToStartingPosition (Tetromino blocks) =
+  let movedBlocks =
+          (\(Block (x, y) color) -> Block (x, y + startPositionOffset) color)
+            <$> blocks
+  in  Tetromino movedBlocks
 
-
-
-
-
-
-
-
-
-
-
+moveTetromino :: Tetromino -> Direction -> Tetromino
+moveTetromino (Tetromino blocks) dir =
+  let (xOffset, yOffset) = case dir of
+        DirLeft  -> (-1, 0)
+        DirRight -> (1, 0)
+        DirDown  -> (0, -1)
+      movedBlocks =
+          (\(Block (x, y) color) -> (Block (x + xOffset, y + yOffset) color))
+            <$> blocks
+  in  Tetromino movedBlocks
 
 
 getSeedFromCurrentTime :: IO Int
@@ -119,7 +141,7 @@ getSeedFromCurrentTime = do
 getGoodStdGen :: IO StdGen
 getGoodStdGen = do
   seed <- getSeedFromCurrentTime
-  let stdGen         = mkStdGen seed
+  let stdGen = mkStdGen seed
   return stdGen
 
 

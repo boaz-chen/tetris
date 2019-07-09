@@ -116,11 +116,17 @@ getSeedFromCurrentTime = do
   let seconds = formatTime defaultTimeLocale "%s" currentTime
   return $ read seconds
 
+getGoodStdGen :: IO StdGen
+getGoodStdGen = do
+  seed <- getSeedFromCurrentTime
+  let stdGen         = mkStdGen seed
+  return stdGen
+
+
 -- main
 main :: IO ()
 main = do
-  seed <- getSeedFromCurrentTime
-  let stdGen         = mkStdGen seed
+  stdGen <- getGoodStdGen
   let b = newBoard stdGen
 
   putStrLn $ show b

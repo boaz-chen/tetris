@@ -1,6 +1,7 @@
 module Tetris where
 
-import qualified Data.Set                      as Set
+import qualified Data.List                     as List
+import qualified Data.Map                      as Map
 import           System.Random
 import           Data.Time.Clock
 import           Data.Time.Format
@@ -74,10 +75,10 @@ orangeL = Tetromino
 tetrominoes :: [Tetromino]
 tetrominoes = [cyanI, yellowO, purpleT, greenS, redZ, blueJ, orangeL]
 
-type Heap = Set.Set Block
+type Heap = Map.Map Location Block
 
 emptyHeap :: Heap
-emptyHeap = Set.empty
+emptyHeap = Map.empty
 
 data BoardState =
     GameOver
@@ -98,14 +99,12 @@ startPositionOffset = height - 3
 
 data Direction = DirLeft | DirRight | DirDown
 
-
-
 -----------
 
 newBoard :: StdGen -> Board
 newBoard gen =
   let (newTetromino, newGen) = randomTetromino gen
-      positionedTetromino    = moveTetrominoToStartingPosition newTetromino
+      positionedTetromino    = moveToStartingPosition newTetromino
   in  Board emptyHeap (GameOn positionedTetromino) newGen
 
 randomTetromino :: StdGen -> (Tetromino, StdGen)
@@ -113,15 +112,15 @@ randomTetromino gen =
   let (randomIx, newGen) = randomR (0, (length tetrominoes) - 1) gen
   in  (tetrominoes !! randomIx, newGen)
 
-moveTetrominoToStartingPosition :: Tetromino -> Tetromino
-moveTetrominoToStartingPosition (Tetromino blocks) =
+moveToStartingPosition :: Tetromino -> Tetromino
+moveToStartingPosition (Tetromino blocks) =
   let movedBlocks =
           (\(Block (x, y) color) -> Block (x, y + startPositionOffset) color)
             <$> blocks
   in  Tetromino movedBlocks
 
-moveTetromino :: Tetromino -> Direction -> Tetromino
-moveTetromino (Tetromino blocks) dir =
+offsetTetromino :: Tetromino -> Direction -> Tetromino
+offsetTetromino (Tetromino blocks) dir =
   let (xOffset, yOffset) = case dir of
         DirLeft  -> (-1, 0)
         DirRight -> (1, 0)
@@ -130,6 +129,35 @@ moveTetromino (Tetromino blocks) dir =
           (\(Block (x, y) color) -> (Block (x + xOffset, y + yOffset) color))
             <$> blocks
   in  Tetromino movedBlocks
+
+moveTetromino :: Board -> Direction -> Board
+moveTetromino board@(Board _ GameOver _) _ = board
+moveTetromino board@(Board heap (GameOn tetromino) gen) dir =
+  let movedTetromino@(Tetromino blocks) = offsetTetromino tetromino dir
+      outOfBounds = List.any (\(Block (x, _) _) -> x < 0 || x >= width) blocks
+      collidesWithHeap =
+          List.any (\(Block location _) -> Map.member location heap) blocks
+      landed = List.any (\(Block (_, y) _) -> y == 0) blocks
+  in  if outOfBounds
+        then board
+        else if landed || collidesWithHeap
+          then
+            let (newTetromino, newGen) = randomTetromino gen
+            in  (Board (addToHeap movedTetromino heap)
+                       (GameOn $ moveToStartingPosition newTetromino)
+                       newGen
+                )
+          else (Board heap (GameOn movedTetromino) gen)
+
+addToHeap :: Tetromino -> Heap -> Heap
+addToHeap (Tetromino blocks) heap = List.foldl'
+  (\acc block@(Block location _) -> Map.insert location block acc)
+  heap
+  blocks
+
+handleBoard :: Board -> Board
+handleBoard b@(Board _    GameOver _  ) = b
+handleBoard (  Board heap state    gen) = undefined
 
 
 getSeedFromCurrentTime :: IO Int
@@ -145,10 +173,59 @@ getGoodStdGen = do
   return stdGen
 
 
--- main
-main :: IO ()
-main = do
-  stdGen <- getGoodStdGen
-  let b = newBoard stdGen
 
-  putStrLn $ show b
+-- main --
+log' s = putStrLn $ ">>> " <> s
+
+main :: IO ()
+-- main = do
+--   stdGen <- getGoodStdGen
+--   let b = newBoard stdGen
+--
+--   log' $ "Initial board: " <> show b
+--
+--   let b' = moveTetromino b DirDown
+
+--  log' $ "Move down: " <> show b'
+main = do
+  gen <- getGoodStdGen
+  loop $ (Board emptyHeap GameOver gen)
+  putStrLn "Goodbye"
+
+log'' s = s <> "\n"
+
+interact' :: IO ()
+interact' = do
+  gen <- getGoodStdGen
+  interact
+    $ unlines
+    . map
+        (\k -> case k of
+          "n" -> show $ newBoard gen
+          "q" -> error "Quitting"
+          s   -> log'' $ "Unsupported command: " <> s
+        )
+    . lines
+
+loop :: Board -> IO Board
+loop board@(Board _ GameOver gen) = do
+  log' "Game over. n to start a new game or q to quit."
+  c <- getChar
+
+  case c of
+    'n' -> getGoodStdGen >>= (\newGen -> loop $ newBoard newGen)
+    'q' -> return board
+    _   -> loop board
+
+loop board@(Board heap (GameOn tetromino@(Tetromino blocks)) gen) = do
+  putStrLn $ show board
+  log' "r for right. l for left. d for down. q to quit. n to start a new game."
+  c <- getChar
+
+  case c of
+    'n' -> getGoodStdGen >>= (\newGen -> loop $ newBoard newGen)
+    'q' -> return board
+    'l' -> loop $ moveTetromino board DirLeft
+    'r' -> loop $ moveTetromino board DirRight
+    'd' -> loop $ moveTetromino board DirDown
+    _   -> loop board

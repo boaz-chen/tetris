@@ -5,6 +5,7 @@ import qualified Data.Map                      as Map
 import           System.Random
 import           Data.Time.Clock
 import           Data.Time.Format
+import qualified System.Console.ANSI           as Console
 
 data Tetromino = Tetromino [Block]
   deriving (Eq, Show)
@@ -143,7 +144,7 @@ moveTetromino board@(Board heap (GameOn tetromino) gen) dir =
         else if landed || collidesWithHeap
           then
             let (newTetromino, newGen) = randomTetromino gen
-            in  (Board (addToHeap movedTetromino heap)
+            in  (Board (addToHeap tetromino heap)
                        (GameOn $ moveToStartingPosition newTetromino)
                        newGen
                 )
@@ -190,22 +191,9 @@ main :: IO ()
 main = do
   gen <- getGoodStdGen
   loop $ (Board emptyHeap GameOver gen)
-  putStrLn "Goodbye"
+  putStrLn "\nGoodbye"
 
 log'' s = s <> "\n"
-
-interact' :: IO ()
-interact' = do
-  gen <- getGoodStdGen
-  interact
-    $ unlines
-    . map
-        (\k -> case k of
-          "n" -> show $ newBoard gen
-          "q" -> error "Quitting"
-          s   -> log'' $ "Unsupported command: " <> s
-        )
-    . lines
 
 loop :: Board -> IO Board
 loop board@(Board _ GameOver gen) = do
@@ -218,7 +206,8 @@ loop board@(Board _ GameOver gen) = do
     _   -> loop board
 
 loop board@(Board heap (GameOn tetromino@(Tetromino blocks)) gen) = do
-  putStrLn $ show board
+  -- putStrLn $ show board
+  render board
   log' "r for right. l for left. d for down. q to quit. n to start a new game."
   c <- getChar
 
@@ -229,3 +218,21 @@ loop board@(Board heap (GameOn tetromino@(Tetromino blocks)) gen) = do
     'r' -> loop $ moveTetromino board DirRight
     'd' -> loop $ moveTetromino board DirDown
     _   -> loop board
+
+render :: Board -> IO ()
+render (Board _    GameOver                    _) = putStrLn ""
+render (Board heap (GameOn (Tetromino blocks)) _) = do
+  Console.clearScreen
+  Console.setCursorPosition 30 0
+  let heapBlocks = snd <$> Map.toList heap
+
+  mapM_
+    (\(Block (x, y) _) -> Console.setCursorPosition (height - y) x >> putStr "*"
+    )
+    heapBlocks
+  mapM_
+    (\(Block (x, y) _) -> Console.setCursorPosition (height - y) x >> putStr "*"
+    )
+    blocks
+
+  Console.setCursorPosition 25 0

@@ -30,4 +30,5 @@ executables:
     - -main-is Tetris
     dependencies:
     - containers
+    - ansi-terminal
 description: Please see the README on GitHub at <https://github.com/githubuser/Tetris#readme>

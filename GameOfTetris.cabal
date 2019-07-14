@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9784599b2d1119070dde4673a3862427a62c568f6f9519445d61c4aaf57623bd
+-- hash: bb04958aa321afd6a4d7aceef7dc8496ca70fed0432be6199c65be220093272c
 
 name:           GameOfTetris
 version:        0.1.0.0
@@ -31,7 +31,8 @@ executable tetris
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -main-is Tetris
   build-depends:
-      base >=4.7 && <5
+      ansi-terminal
+    , base >=4.7 && <5
     , containers
     , random
     , time

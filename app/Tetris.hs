@@ -1,15 +1,25 @@
-module Tetris where
-
 import qualified Data.List                     as List
-import qualified Data.Map                      as Map
+import qualified Data.Vector                   as Vec
 import           System.Random
 import           Data.Time.Clock
 import           Data.Time.Format
 import qualified System.Console.ANSI           as Console
 import           Data.Functor
+import           Data.Maybe                               ( fromMaybe )
 
 data Tetromino = Tetromino [Block] Offset Size
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Tetromino where
+  show tetromino@(Tetromino blocks offset size) =
+    "Relative blocks: "
+      <> (show blocks)
+      <> "\n"
+      <> "Offset: "
+      <> (show offset)
+      <> "\n"
+      <> "Absolute blocks: "
+      <> (show $ absBlocks tetromino)
 
 type Location = (Int, Int)
 type Offset = (Int, Int)
@@ -79,10 +89,15 @@ orangeL = threeSizedTetromino
 tetrominoes :: [Tetromino]
 tetrominoes = [cyanI, yellowO, purpleT, greenS, redZ, blueJ, orangeL]
 
-type Heap = Map.Map Location Block
+type Row = [Block]
+
+type Heap = Vec.Vector Row
+
+emptyRow :: Row
+emptyRow = []
 
 emptyHeap :: Heap
-emptyHeap = Map.empty
+emptyHeap = Vec.replicate height emptyRow
 
 data BoardState =
     GameOver
@@ -97,15 +112,25 @@ width = 10
 tetrominoHeight = 4
 tetrominoWidth = 4
 
-startPositionOffset :: Int
-startPositionOffset = height - 3
-
 data Direction = DirLeft | DirRight | DirDown
+  deriving (Eq, Show)
 
 -----------
 
 mkTetromino :: Size -> [Block] -> Tetromino
 mkTetromino size blocks = Tetromino blocks (0, 0) size
+
+heapMember :: Location -> Heap -> Bool
+heapMember (col, row) heap =
+  let heapRow   = heap Vec.!? row
+      columns   = (fmap . fmap) (\(Block (col', _) _) -> col') heapRow
+      colExists = fmap (List.elem col) columns
+                              --List.elem col $ fmap (\(Block (col', _) _) -> col') $ heap Vec.! row
+  in  fromMaybe False colExists
+
+heapInsert :: Block -> Heap -> Heap
+heapInsert block@(Block (_, row) _) heap = heap Vec.// [(row, newRow)]
+  where newRow = block : (heap Vec.! row)
 
 twoSizedTetromino = mkTetromino 2
 threeSizedTetromino = mkTetromino 3
@@ -126,7 +151,7 @@ randomTetromino gen =
   let (randomIx, gen0)               = randomR (0, (length tetrominoes) - 1) gen
       (Tetromino blocks (_, y) size) = tetrominoes !! randomIx
       (randomX, gen1)                = randomR (0, width - size - 1) gen
-  in  (Tetromino blocks (randomX, y + startPositionOffset) size, gen1)
+  in  (Tetromino blocks (randomX, y + height - 1) size, gen1)
 
 offsetTetromino :: Tetromino -> Direction -> Tetromino
 offsetTetromino (Tetromino blocks (x, y) size) dir =
@@ -139,32 +164,43 @@ offsetTetromino (Tetromino blocks (x, y) size) dir =
 moveTetromino :: Board -> Direction -> Board
 moveTetromino board@(Board _ GameOver _) _ = board
 moveTetromino board@(Board heap (GameOn tetromino) gen) dir =
-  let movedTetromino = offsetTetromino tetromino dir
-      blocks = absBlocks movedTetromino
-      outOfBounds = List.any (\(Block (x, _) _) -> x < 0 || x >= width) blocks
-      collidesWithHeap =
-          List.any (\(Block location _) -> Map.member location heap) blocks
-      landed = List.any (\(Block (_, y) _) -> y == 0) blocks
-  in  if outOfBounds
-        then board
-        else if landed || collidesWithHeap
-          then
-            let (newTetromino, newGen) = randomTetromino gen
-            in  (Board (addToHeap tetromino heap) (GameOn $ newTetromino) newGen
-                )
-          else (Board heap (GameOn movedTetromino) gen)
+  let
+    movedTetromino = offsetTetromino tetromino dir
+    blocks         = absBlocks movedTetromino
+    outOfBounds    = List.any (\(Block (x, _) _) -> x < 0 || x >= width) blocks
+    collidesWithHeap =
+      List.any (\(Block location _) -> heapMember location heap) blocks
+    gameOver =
+      collidesWithHeap
+        && (List.any (\(Block (_, y) _) -> y >= height) $ absBlocks tetromino)
+    landed = List.any (\(Block (_, y) _) -> y < 0) blocks
+  in
+    if gameOver
+      then (Board heap GameOver gen)
+      else
+        if outOfBounds
+           || (collidesWithHeap && List.elem dir [DirLeft, DirRight])
+        then
+          board
+        else
+          if landed || collidesWithHeap
+            then
+              let (newTetromino, newGen) = randomTetromino gen
+              in  (Board (addToHeap tetromino heap)
+                         (GameOn $ newTetromino)
+                         newGen
+                  )
+            else (Board heap (GameOn movedTetromino) gen)
+
+removeFullLines :: Board -> Board
+removeFullLines board@(Board _    GameOver _) = board
+removeFullLines board@(Board heap _        _) = undefined
 
 addToHeap :: Tetromino -> Heap -> Heap
-addToHeap tetromino heap = List.foldl'
-  (\acc block@(Block location _) -> Map.insert location block acc)
-  heap
-  blocks
+addToHeap tetromino heap = List.foldl' (\acc block -> heapInsert block acc)
+                                       heap
+                                       blocks
   where blocks = absBlocks tetromino
-
-handleBoard :: Board -> Board
-handleBoard b@(Board _    GameOver _  ) = b
-handleBoard (  Board heap state    gen) = undefined
-
 
 getSeedFromCurrentTime :: IO Int
 getSeedFromCurrentTime = do
@@ -192,7 +228,7 @@ log' s = putStrLn $ ">>> " <> s
 main :: IO ()
 main = do
   gen <- getGoodStdGen
-  loop $ (Board emptyHeap GameOver gen)
+  loop $ newBoard gen
   putStrLn "\nGoodbye"
 
 log'' s = s <> "\n"
@@ -209,7 +245,10 @@ loop board@(Board _ GameOver gen) = do
 
 loop board@(Board heap (GameOn tetromino) gen) = do
   render board
-  log' $ show tetromino
+  log' "Tetromino: "
+  putStrLn $ show tetromino
+  log' $ "Heap: "
+  putStrLn $ show heap
   log'
     ". for right. , for left. d for down. space to rotate. q to quit. n to start a new game."
   c <- getChar
@@ -227,17 +266,21 @@ render :: Board -> IO ()
 render (Board _    GameOver           _) = putStrLn ""
 render (Board heap (GameOn tetromino) _) = do
   Console.clearScreen
-  Console.setCursorPosition 30 0
-  let heapBlocks = snd <$> Map.toList heap
-  let blocks     = absBlocks tetromino
+  Console.setCursorPosition 25 0
+  let blocks = absBlocks tetromino
+  let blocksInBounds = List.filter
+        (\(Block (x, y) _) -> x >= 0 && x < width && y >= 0 && y < height)
+        blocks
 
-  mapM_
-    (\(Block (x, y) _) -> Console.setCursorPosition (height - y) x >> putStr "o"
+  (mapM_ . mapM_)
+    (\(Block (x, y) _) -> Console.setCursorPosition (height - y) x >> putStr "■"
     )
-    heapBlocks
+    heap
   mapM_
-    (\(Block (x, y) _) -> Console.setCursorPosition (height - y) x >> putStr "o"
+    (\(Block (x, y) _) -> Console.setCursorPosition (height - y) x >> putStr "■"
     )
-    blocks
+    blocksInBounds
 
+  Console.setCursorPosition 21 0
+  putStrLn $ take width $ repeat '▬'
   Console.setCursorPosition 25 0

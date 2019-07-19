@@ -29,6 +29,6 @@ executables:
     - -with-rtsopts=-N
     - -main-is Tetris
     dependencies:
-    - containers
+    - vector
     - ansi-terminal
 description: Please see the README on GitHub at <https://github.com/githubuser/Tetris#readme>

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bb04958aa321afd6a4d7aceef7dc8496ca70fed0432be6199c65be220093272c
+-- hash: 4994a4fb4182cb24997e71dc7741acfb720303013fea1385164b9626e1614674
 
 name:           GameOfTetris
 version:        0.1.0.0
@@ -33,9 +33,9 @@ executable tetris
   build-depends:
       ansi-terminal
     , base >=4.7 && <5
-    , containers
     , random
     , time
+    , vector
   default-language: Haskell2010
 
 test-suite Tetris-test

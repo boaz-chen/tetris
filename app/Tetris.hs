@@ -125,7 +125,7 @@ heapMember (col, row) heap =
   let heapRow   = heap Vec.!? row
       columns   = (fmap . fmap) (\(Block (col', _) _) -> col') heapRow
       colExists = fmap (List.elem col) columns
-                              --List.elem col $ fmap (\(Block (col', _) _) -> col') $ heap Vec.! row
+                                                  --List.elem col $ fmap (\(Block (col', _) _) -> col') $ heap Vec.! row
   in  fromMaybe False colExists
 
 heapInsert :: Block -> Heap -> Heap
@@ -215,12 +215,20 @@ getGoodStdGen = do
   return stdGen
 
 rotate :: Tetromino -> Tetromino
-rotate (Tetromino blocks offset size) = Tetromino (rotateBlock <$> blocks)
-                                                  offset
-                                                  size
- where
-  rotateBlock :: Block -> Block
-  rotateBlock (Block (x, y) color) = (Block (size - y - 1, x) color)
+rotate (Tetromino blocks offset size) =
+  let rotateBlock :: Block -> Block
+      rotateBlock (Block (x, y) color) = (Block (size - y - 1, x) color)
+      rotatedTetromino@(Tetromino rotatedBlocks (xOffset, yOffset) size') =
+          Tetromino (rotateBlock <$> blocks) offset size
+      absRotatedBlocks = absBlocks rotatedTetromino
+      rightmost = List.maximum $ fmap (\(Block (x, _) _) -> x) absRotatedBlocks
+      leftmost = List.minimum $ fmap (\(Block (x, _) _) -> x) absRotatedBlocks
+      rightOverrun = rightmost - width + 1
+      leftOverrun = leftmost
+      correctedOffset = if rightOverrun > 0
+        then rightOverrun
+        else if leftOverrun < 0 then leftOverrun else 0
+  in  Tetromino rotatedBlocks (xOffset - correctedOffset, yOffset) size'
 
 -- main --
 log' s = putStrLn $ ">>> " <> s

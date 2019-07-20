@@ -10,6 +10,11 @@ import qualified Data.Vector                   as Vec
 import           System.Random
 import qualified System.Console.ANSI           as Console
 import           Data.Functor
+import qualified Graphics.Gloss                as Gloss
+import qualified Graphics.Gloss.Data.Color     as Color
+import qualified Graphics.Gloss.Data.Picture   as Picture
+import qualified Graphics.Gloss.Interface.IO.Interact
+                                               as Interact
 
 data BoardState =
     GameOver
@@ -104,8 +109,8 @@ rotate (Tetromino blocks offset size) =
 -- main --
 log' s = putStrLn $ ">>> " <> s
 
-main :: IO ()
-main = do
+terminalMain :: IO ()
+terminalMain = do
   gen <- getGoodStdGen
   loop $ newBoard gen
   putStrLn "\nGoodbye"
@@ -167,3 +172,26 @@ render (Board heap (GameOn tetromino) _ _) = do
   Console.setCursorPosition 21 0
   putStrLn $ replicate width '▬'
   Console.setCursorPosition 25 0
+
+
+----------------
+
+main :: IO ()
+main = do
+  gen <- getGoodStdGen
+  Gloss.play (Gloss.InWindow "Tetris" (500, 500) (500, 500))
+             Color.black
+             60
+             (newBoard gen)
+             renderBoard
+             handleInput
+             stepBoard
+
+renderBoard :: Board -> Gloss.Picture
+renderBoard _ = Picture.color Color.azure $ Picture.circle 100
+
+handleInput :: Interact.Event -> Board -> Board
+handleInput _ b = b
+
+stepBoard :: Float -> Board -> Board
+stepBoard _ b = b

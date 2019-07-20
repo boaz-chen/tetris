@@ -31,4 +31,5 @@ executables:
     dependencies:
     - vector
     - ansi-terminal
+    - gloss
 description: Please see the README on GitHub at <https://github.com/githubuser/Tetris#readme>

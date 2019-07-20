@@ -125,7 +125,7 @@ heapMember (col, row) heap =
   let heapRow   = heap Vec.!? row
       columns   = (fmap . fmap) (\(Block (col', _) _) -> col') heapRow
       colExists = fmap (List.elem col) columns
-                                                  --List.elem col $ fmap (\(Block (col', _) _) -> col') $ heap Vec.! row
+                                                                                                  --List.elem col $ fmap (\(Block (col', _) _) -> col') $ heap Vec.! row
   in  fromMaybe False colExists
 
 heapInsert :: Block -> Heap -> Heap
@@ -164,37 +164,53 @@ offsetTetromino (Tetromino blocks (x, y) size) dir =
 moveTetromino :: Board -> Direction -> Board
 moveTetromino board@(Board _ GameOver _) _ = board
 moveTetromino board@(Board heap (GameOn tetromino) gen) dir =
-  let
-    movedTetromino = offsetTetromino tetromino dir
-    blocks         = absBlocks movedTetromino
-    outOfBounds    = List.any (\(Block (x, _) _) -> x < 0 || x >= width) blocks
-    collidesWithHeap =
-      List.any (\(Block location _) -> heapMember location heap) blocks
-    gameOver =
-      collidesWithHeap
-        && (List.any (\(Block (_, y) _) -> y >= height) $ absBlocks tetromino)
-    landed = List.any (\(Block (_, y) _) -> y < 0) blocks
-  in
-    if gameOver
-      then (Board heap GameOver gen)
-      else
-        if outOfBounds
-           || (collidesWithHeap && List.elem dir [DirLeft, DirRight])
-        then
-          board
+  let movedTetromino = offsetTetromino tetromino dir
+      blocks = absBlocks movedTetromino
+      outOfBounds = List.any (\(Block (x, _) _) -> x < 0 || x >= width) blocks
+      collidesWithHeap =
+          List.any (\(Block location _) -> heapMember location heap) blocks
+      gameOver =
+          collidesWithHeap
+            && (List.any (\(Block (_, y) _) -> y >= height) $ absBlocks tetromino)
+      landed = List.any (\(Block (_, y) _) -> y < 0) blocks
+  in  if gameOver
+        then (Board heap GameOver gen)
         else
-          if landed || collidesWithHeap
-            then
-              let (newTetromino, newGen) = randomTetromino gen
-              in  (Board (addToHeap tetromino heap)
-                         (GameOn $ newTetromino)
-                         newGen
-                  )
-            else (Board heap (GameOn movedTetromino) gen)
+          if outOfBounds
+             || (collidesWithHeap && List.elem dir [DirLeft, DirRight])
+          then
+            board
+          else
+            if landed || collidesWithHeap -- tetromino landed
+              then
+                let
+                  (newTetromino, newGen) = randomTetromino gen
+                  boardWithUpdatedHeap =
+                    (Board (addToHeap tetromino heap)
+                           (GameOn $ newTetromino)
+                           newGen
+                    )
+                  boardWithoutFullLines = removeFullLines boardWithUpdatedHeap
+                in
+                  boardWithoutFullLines
+              else (Board heap (GameOn movedTetromino) gen)
 
 removeFullLines :: Board -> Board
-removeFullLines board@(Board _    GameOver _) = board
-removeFullLines board@(Board heap _        _) = undefined
+removeFullLines board@(Board _ GameOver _) = board
+removeFullLines (Board heap state gen) =
+  let (fullLinesHeap, partialLinesHeap) =
+          Vec.partition (\blocks -> length blocks == width) heap
+      completionHeap = Vec.replicate (length fullLinesHeap) emptyRow
+      newHeap        = Vec.concat [partialLinesHeap, completionHeap]
+      calibratedHeap = compressBlocks newHeap
+  in  Board calibratedHeap state gen
+
+compressBlocks :: Heap -> Heap    -- modify each row blocks to have the correct row index
+compressBlocks heap = Vec.imap modifyRow heap
+ where
+  modifyRow :: Int -> Row -> Row
+  modifyRow rowIndex blocks =
+    (\(Block (x, y) color) -> Block (x, rowIndex) color) <$> blocks
 
 addToHeap :: Tetromino -> Heap -> Heap
 addToHeap tetromino heap = List.foldl' (\acc block -> heapInsert block acc)

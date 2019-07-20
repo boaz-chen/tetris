@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4994a4fb4182cb24997e71dc7741acfb720303013fea1385164b9626e1614674
+-- hash: bd5abbf8d2e0d547d9368fde3196befb000986969c4cd37b276c4dd5a3e7f71a
 
 name:           GameOfTetris
 version:        0.1.0.0
@@ -26,6 +26,11 @@ source-repository head
 executable tetris
   main-is: Tetris.hs
   other-modules:
+      Config
+      Heap
+      Tetromino
+      Types
+      Util
       Paths_GameOfTetris
   hs-source-dirs:
       app

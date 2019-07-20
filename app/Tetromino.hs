@@ -1,8 +1,8 @@
 module Tetromino where
 
 import           System.Random
-import Types
-import Config
+import           Types
+import           Config
 
 data Tetromino = Tetromino [Block] Offset Size
   deriving (Eq)

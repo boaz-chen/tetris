@@ -16,18 +16,23 @@ data BoardState =
   | GameOn Tetromino
   deriving (Show)
 
-data Board = Board Heap.Heap BoardState StdGen
+type Score = Int
+
+landingScore = 10
+fullLineScore = 50
+
+data Board = Board Heap.Heap BoardState StdGen Score
   deriving (Show)
 
 newBoard :: StdGen -> Board
 newBoard gen =
   let (newTetromino, newGen) = randomTetromino gen
       positionedTetromino    = newTetromino
-  in  Board Heap.empty (GameOn positionedTetromino) newGen
+  in  Board Heap.empty (GameOn positionedTetromino) newGen 0
 
 moveTetromino :: Board -> Direction -> Board
-moveTetromino board@(Board _ GameOver _) _ = board
-moveTetromino board@(Board heap (GameOn tetromino) gen) dir =
+moveTetromino board@(Board _ GameOver _ _) _ = board
+moveTetromino board@(Board heap (GameOn tetromino) gen score) dir =
   let movedTetromino = offsetTetromino tetromino dir
       blocks = absBlocks movedTetromino
       outOfBounds = List.any (\(Block (x, _) _) -> x < 0 || x >= width) blocks
@@ -37,7 +42,7 @@ moveTetromino board@(Board heap (GameOn tetromino) gen) dir =
         && List.any (\(Block (_, y) _) -> y >= height) (absBlocks tetromino)
       landed = List.any (\(Block (_, y) _) -> y < 0) blocks
   in  if gameOver
-        then Board heap GameOver gen
+        then Board heap GameOver gen score
         else
           if outOfBounds
              || (collidesWithHeap && List.elem dir [DirLeft, DirRight])
@@ -51,20 +56,23 @@ moveTetromino board@(Board heap (GameOn tetromino) gen) dir =
                   boardWithUpdatedHeap   = Board (addToHeap tetromino heap)
                                                  (GameOn newTetromino)
                                                  newGen
+                                                 score
                   boardWithoutFullLines = removeFullLines boardWithUpdatedHeap
                 in
                   boardWithoutFullLines
-              else Board heap (GameOn movedTetromino) gen
+              else Board heap (GameOn movedTetromino) gen score
 
 removeFullLines :: Board -> Board
-removeFullLines board@(Board _ GameOver _) = board
-removeFullLines (Board heap state gen) =
+removeFullLines board@(Board _ GameOver _ _) = board
+removeFullLines (Board heap state gen score) =
   let (fullLinesHeap, partialLinesHeap) =
           Vec.partition (\blocks -> length blocks == width) heap
-      completionHeap = Vec.replicate (length fullLinesHeap) Heap.emptyRow
+      fullLinesCount = length fullLinesHeap
+      completionHeap = Vec.replicate fullLinesCount Heap.emptyRow
       newHeap        = Vec.concat [partialLinesHeap, completionHeap]
       calibratedHeap = compressBlocks newHeap
-  in  Board calibratedHeap state gen
+      newScore       = score + landingScore + fullLineScore * fullLinesCount
+  in  Board calibratedHeap state gen newScore
 
 compressBlocks :: Heap.Heap -> Heap.Heap    -- modify each row blocks to have the correct row index
 compressBlocks = Vec.imap modifyRow
@@ -105,8 +113,11 @@ main = do
 log'' s = s <> "\n"
 
 loop :: Board -> IO Board
-loop board@(Board _ GameOver gen) = do
-  log' "Game over. n to start a new game or q to quit."
+loop board@(Board _ GameOver gen score) = do
+  log'
+    $  "Game over. Your score is "
+    ++ show score
+    ++ ". n to start a new game or q to quit."
   c <- getChar
 
   case c of
@@ -114,12 +125,13 @@ loop board@(Board _ GameOver gen) = do
     'q' -> return board
     _   -> loop board
 
-loop board@(Board heap (GameOn tetromino) gen) = do
+loop board@(Board heap (GameOn tetromino) gen score) = do
   render board
 --  log' "Tetromino: "
 --  print tetromino
 --  log' "Heap: "
 --  print heap
+  log' $ "Score: " ++ show score
   log'
     ". for right. , for left. d for down. space to rotate. q to quit. n to start a new game."
   c <- getChar
@@ -130,12 +142,12 @@ loop board@(Board heap (GameOn tetromino) gen) = do
     ',' -> loop $ moveTetromino board DirLeft
     '.' -> loop $ moveTetromino board DirRight
     'd' -> loop $ moveTetromino board DirDown
-    ' ' -> loop $ Board heap (GameOn $ rotate tetromino) gen
+    ' ' -> loop $ Board heap (GameOn $ rotate tetromino) gen score
     _   -> loop board
 
 render :: Board -> IO ()
-render (Board _    GameOver           _) = putStrLn ""
-render (Board heap (GameOn tetromino) _) = do
+render (Board _    GameOver           _ _) = putStrLn ""
+render (Board heap (GameOn tetromino) _ _) = do
   Console.clearScreen
   Console.setCursorPosition 25 0
   let blocks = absBlocks tetromino

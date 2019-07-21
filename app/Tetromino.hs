@@ -25,62 +25,51 @@ type Size = Int
 data Block = Block Location Color
   deriving (Eq, Show, Ord)
 
-type Color = String -- TODO: replace with real Color
+data Color = Cyan | Yellow | Purple | Green | Red | Blue | Orange
+  deriving (Eq, Show, Ord)
 
 cyanI :: Tetromino
 cyanI = fourSizedTetromino
-  [ Block (0, 2) "Cyan"
-  , Block (1, 2) "Cyan"
-  , Block (2, 2) "Cyan"
-  , Block (3, 2) "Cyan"
-  ]
+  [Block (0, 2) Cyan, Block (1, 2) Cyan, Block (2, 2) Cyan, Block (3, 2) Cyan]
 
 yellowO :: Tetromino
 yellowO = twoSizedTetromino
-  [ Block (0, 0) "Yellow"
-  , Block (1, 0) "Yellow"
-  , Block (0, 1) "Yellow"
-  , Block (1, 1) "Yellow"
+  [ Block (0, 0) Yellow
+  , Block (1, 0) Yellow
+  , Block (0, 1) Yellow
+  , Block (1, 1) Yellow
   ]
 
 purpleT :: Tetromino
 purpleT = threeSizedTetromino
-  [ Block (0, 1) "Purple"
-  , Block (1, 1) "Purple"
-  , Block (2, 1) "Purple"
-  , Block (1, 2) "Purple"
+  [ Block (0, 1) Purple
+  , Block (1, 1) Purple
+  , Block (2, 1) Purple
+  , Block (1, 2) Purple
   ]
 
 greenS :: Tetromino
 greenS = threeSizedTetromino
-  [ Block (0, 1) "Green"
-  , Block (1, 1) "Green"
-  , Block (1, 2) "Green"
-  , Block (2, 2) "Green"
+  [ Block (0, 1) Green
+  , Block (1, 1) Green
+  , Block (1, 2) Green
+  , Block (2, 2) Green
   ]
 
 redZ :: Tetromino
 redZ = threeSizedTetromino
-  [ Block (0, 2) "Red"
-  , Block (1, 2) "Red"
-  , Block (1, 1) "Red"
-  , Block (2, 1) "Red"
-  ]
+  [Block (0, 2) Red, Block (1, 2) Red, Block (1, 1) Red, Block (2, 1) Red]
 
 blueJ :: Tetromino
 blueJ = threeSizedTetromino
-  [ Block (0, 2) "Blue"
-  , Block (0, 1) "Blue"
-  , Block (1, 1) "Blue"
-  , Block (2, 1) "Blue"
-  ]
+  [Block (0, 2) Blue, Block (0, 1) Blue, Block (1, 1) Blue, Block (2, 1) Blue]
 
 orangeL :: Tetromino
 orangeL = threeSizedTetromino
-  [ Block (0, 1) "Orange"
-  , Block (1, 1) "Orange"
-  , Block (2, 1) "Orange"
-  , Block (2, 2) "Orange"
+  [ Block (0, 1) Orange
+  , Block (1, 1) Orange
+  , Block (2, 1) Orange
+  , Block (2, 2) Orange
   ]
 
 tetrominoes :: [Tetromino]

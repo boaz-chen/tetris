@@ -176,26 +176,49 @@ render (Board heap (GameOn tetromino) _ _) = do
 
 ----------------
 blockSize = 30 :: Float
-boardOffsetX = -200 :: Float
-boardOffsetY = -200 :: Float
+boardOffsetX = (blockSize / 2) - blockSize * (fromIntegral width :: Float) / 2
+boardOffsetY = (blockSize / 2) - blockSize * (fromIntegral height :: Float) / 2
 
 main :: IO ()
 main = do
   gen <- getGoodStdGen
-  Gloss.play (Gloss.InWindow "Tetris" (1000, 1000) (500, 500))
+  Gloss.play (Gloss.InWindow "Tetris" (1000, 1000) (1500, 500))
              (Color.greyN 0.5)
-             60
+             10
              (newBoard gen)
-             renderBoard
+             renderGame
              handleInput
              stepBoard
+
+renderGame :: Board -> Gloss.Picture
+renderGame board =
+  let borderPicture = renderBorder
+      scorePicture  = Picture.blank
+      levelPicture  = Picture.blank
+      boardPicture  = renderBoard board
+      centerPoint   = Picture.circleSolid 10
+  in  Picture.pictures
+        [centerPoint, borderPicture, scorePicture, levelPicture, boardPicture]
+
+renderBorder :: Gloss.Picture
+renderBorder = Picture.color Color.black $ Picture.rectangleWire
+  (blockSize * (fromIntegral width :: Float))
+  (blockSize * (fromIntegral height :: Float))
 
 renderBoard :: Board -> Gloss.Picture
 renderBoard (Board heap state _ _) =
   let tetrominoPicture = case state of
         GameOver         -> Picture.blank
         GameOn tetromino -> renderTetromino tetromino
-  in  Picture.translate boardOffsetX boardOffsetY tetrominoPicture
+      heapPicture = renderHeap heap
+      allPictures = Picture.pictures [tetrominoPicture, heapPicture]
+  in  Picture.translate boardOffsetX boardOffsetY allPictures
+
+renderHeap :: Heap.Heap -> Gloss.Picture
+renderHeap heap = Picture.pictures blockPictures
+ where
+  blockPictures = renderBlock <$> blocks
+  blocks        = Vec.foldl' (++) [] heap
 
 renderTetromino :: Tetromino -> Gloss.Picture
 renderTetromino tetromino =
@@ -211,9 +234,10 @@ renderBlock (Block (x, y) color) = Picture.translate
  where
   blockPicture = Picture.pictures
     [ Picture.color Color.black $ Picture.rectangleWire blockSize blockSize
-    , Picture.color (glossColor color)
+    , Picture.color realColor
       $ Picture.rectangleSolid (blockSize - 2) (blockSize - 2)
     ]
+  realColor = glossColor color
 
 glossColor :: Color -> Gloss.Color
 glossColor color | color == Cyan   = Color.cyan
@@ -228,4 +252,4 @@ handleInput :: Interact.Event -> Board -> Board
 handleInput _ b = b
 
 stepBoard :: Float -> Board -> Board
-stepBoard _ b = b
+stepBoard _ board = moveTetromino board DirDown

@@ -175,16 +175,13 @@ render (Board heap (GameOn tetromino) _ _) = do
 
 
 ----------------
-blockSize = 30 :: Float
-boardOffsetX = (blockSize / 2) - blockSize * (fromIntegral width :: Float) / 2
-boardOffsetY = (blockSize / 2) - blockSize * (fromIntegral height :: Float) / 2
 
 main :: IO ()
 main = do
   gen <- getGoodStdGen
   Gloss.play (Gloss.InWindow "Tetris" (1000, 1000) (1500, 500))
              (Color.greyN 0.5)
-             10
+             framesPerSecond
              (newBoard gen)
              renderGame
              handleInput
@@ -196,9 +193,7 @@ renderGame board =
       scorePicture  = Picture.blank
       levelPicture  = Picture.blank
       boardPicture  = renderBoard board
-      centerPoint   = Picture.circleSolid 10
-  in  Picture.pictures
-        [centerPoint, borderPicture, scorePicture, levelPicture, boardPicture]
+  in  Picture.pictures [borderPicture, scorePicture, levelPicture, boardPicture]
 
 renderBorder :: Gloss.Picture
 renderBorder = Picture.color Color.black $ Picture.rectangleWire
@@ -249,7 +244,23 @@ glossColor color | color == Cyan   = Color.cyan
                  | color == Orange = Color.orange
 
 handleInput :: Interact.Event -> Board -> Board
-handleInput _ b = b
+handleInput (Interact.EventKey (Interact.SpecialKey key) Interact.Down _ _) board@(Board _ GameOver gen _)
+  | key == Interact.KeyEnter
+  = newBoard gen
+  | otherwise
+  = board
+handleInput (Interact.EventKey (Interact.SpecialKey key) Interact.Down _ _) board@(Board heap (GameOn tetromino) gen score)
+  | key == Interact.KeyLeft
+  = moveTetromino board DirLeft
+  | key == Interact.KeyRight
+  = moveTetromino board DirRight
+  | key == Interact.KeyDown
+  = moveTetromino board DirDown
+  | key == Interact.KeySpace
+  = Board heap (GameOn $ rotate tetromino) gen score
+  | otherwise
+  = board
+handleInput _ board = board
 
 stepBoard :: Float -> Board -> Board
 stepBoard _ board = moveTetromino board DirDown

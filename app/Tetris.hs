@@ -188,9 +188,9 @@ main = do
              stepBoard
 
 renderGame :: Board -> Gloss.Picture
-renderGame board =
+renderGame board@(Board _ _ _ score) =
   let borderPicture = renderBorder
-      scorePicture  = Picture.blank
+      scorePicture  = renderScore score
       levelPicture  = Picture.blank
       boardPicture  = renderBoard board
   in  Picture.pictures [borderPicture, scorePicture, levelPicture, boardPicture]
@@ -199,6 +199,12 @@ renderBorder :: Gloss.Picture
 renderBorder = Picture.color Color.black $ Picture.rectangleWire
   (blockSize * (fromIntegral width :: Float))
   (blockSize * (fromIntegral height :: Float))
+
+renderScore :: Int -> Gloss.Picture
+renderScore score =
+  Picture.translate scoreOffsetX 0
+    $ Picture.scale scoreScaleFactor scoreScaleFactor
+    $ Picture.text (show score)
 
 renderBoard :: Board -> Gloss.Picture
 renderBoard (Board heap state _ _) =
